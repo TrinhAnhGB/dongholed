@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đồng Hồ LED Đa Năng 01</title>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Hệ thống Tabs chuyển chế độ */
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            z-index: 20;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: #151515;
+            border: 1px solid #333;
+            color: #888;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 15px #00f0ff;
+            border-color: #00f0ff;
+        }
+
+        /* Khung Viền LED */
+        .clock-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            background: #000;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px #0ff, 0 0 40px #00f;
+            transition: box-shadow 0.5s ease;
+        }
+
+        /* Đổi màu viền LED theo chế độ */
+        .clock-container.mode-stopwatch { box-shadow: 0 0 20px #0ff, 0 0 40px #f00; }
+        .clock-container.mode-alarm { box-shadow: 0 0 20px #ff0, 0 0 40px #f0f; }
+        .clock-container.mode-timer { box-shadow: 0 0 20px #0f0, 0 0 40px #00f; }
+        .clock-container.mode-worldclock { box-shadow: 0 0 20px #f90, 0 0 40px #90f; } /* Màu Cam/Tím cho Giờ Quốc Tế */
+
+        /* Màn hình số ở giữa */
+        .display {
+            font-size: 3rem;
+            color: cyan;
+            text-shadow: 0 0 15px cyan;
+            margin-bottom: 15px;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        .mode-label {
+            font-size: 0.9rem;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            z-index: 10;
+            text-align: center;
+        }
+
+        /* Các vòng Kim 01 */
+        .hands-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .digit-01 {
+            position: absolute;
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.05);
+            transform-origin: center;
+        }
+
+        .digit-01.active {
+            color: #fff;
+            font-size: 0.8rem;
+            text-shadow: 0 0 10px #fff;
+            font-weight: bold;
+        }
+
+        /* Định cấu hình vòng kính kích thước */
+        #ring-s { width: 380px; height: 380px; }
+        #ring-m { width: 280px; height: 280px; }
+        #ring-h { width: 180px; height: 180px; }
+
+        /* Màu kim động theo chế độ hoạt động */
+        .mode-stopwatch #ring-s .digit-01.active { color: #f00; text-shadow: 0 0 10px #f00; }
+        .mode-alarm #ring-s .digit-01.active { color: #ff0; text-shadow: 0 0 10px #ff0; }
+        .mode-timer #ring-s .digit-01.active { color: #00f; text-shadow: 0 0 10px #00f; }
+        /* Cấu hình màu kim cho Giờ quốc tế */
+        .mode-worldclock #ring-s .digit-01.active { color: #f90; text-shadow: 0 0 10px #f90; } 
+        .mode-worldclock #ring-m .digit-01.active { color: #90f; text-shadow: 0 0 10px #90f; }
+        .mode-worldclock #ring-h .digit-01.active { color: #0ff; text-shadow: 0 0 10px #0ff; }
+
+        /* Khu vực bảng điều khiển bên dưới */
+        .control-panel {
+            margin-top: 25px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .sub-controls {
+            display: none;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sub-controls.active {
+            display: flex;
+        }
+
+        /* Input phong cách Cyber */
+        input[type="time"], input[type="number"], select {
+            background: #111;
+            border: 1px solid #0ff;
+            color: #0ff;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 1rem;
+            border-radius: 4px;
+            text-align: center;
+            box-shadow: 0 0 5px rgba(0,255,255,0.2);
+            outline: none;
+        }
+        
+        input[type="number"] { width: 50px; }
+
+        select option {
+            background: #111;
+            color: #0ff;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            background: transparent;
+            border: 2px solid;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #fff;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+
+        button:hover { transform: scale(1.05); }
+        
+        .btn-green { color: #0f0; border-color: #0f0; text-shadow: 0 0 8px #0f0; }
+        .btn-red { color: #f00; border-color: #f00; text-shadow: 0 0 8px #f00; }
+        .btn-yellow { color: #ff0; border-color: #ff0; text-shadow: 0 0 8px #ff0; }
+
+        .alarm-status {
+            color: #ff0;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px #ff0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="changeMode('stopwatch')">Đếm Giờ</button>
+        <button class="tab-btn" onclick="changeMode('alarm')">Báo Thức</button>
+        <button class="tab-btn" onclick="changeMode('timer')">Hẹn Giờ</button>
+        <button class="tab-btn" onclick="changeMode('worldclock')">Giờ Quốc Tế</button>
+    </div>
+
+    <div id="clockContainer" class="clock-container mode-stopwatch">
+        <div class="hands-container">
+            <div id="ring-h" class="ring"></div>
+            <div id="ring-m" class="ring"></div>
+            <div id="ring-s" class="ring"></div>
+        </div>
+
+        <div class="mode-label" id="modeLabel">Đếm Giờ</div>
+        <div class="display">
+            <span id="timeDisplay">00:00:00:00</span>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div id="panel-stopwatch" class="sub-controls active">
+            <button class="btn-green" id="swStart">Bắt đầu</button>
+            <button class="btn-red" id="swStop">Dừng</button>
+            <button class="btn-yellow" id="swReset">Đặt lại</button>
+        </div>
+
+        <div id="panel-alarm" class="sub-controls">
+            <input type="time" id="alarmTime" step="1">
+            <button class="btn-green" id="alarmSet">Đặt báo thức</button>
+            <button class="btn-red" id="alarmClear">Tắt</button>
+            <div class="alarm-status" id="alarmStatus">Chưa đặt báo thức</div>
+        </div>
+
+        <div id="panel-timer" class="sub-controls">
+            <input type="number" id="tmH" min="0" max="23" value="0" placeholder="Giờ">:
+            <input type="number" id="tmM" min="0" max="59" value="5" placeholder="Phút">:
+            <input type="number" id="tmS" min="0" max="59" value="0" placeholder="Giây">
+            <button class="btn-green" id="tmStart">Bắt đầu</button>
+            <button class="btn-red" id="tmStop">Dừng</button>
+            <button class="btn-yellow" id="tmReset">Xóa</button>
+        </div>
+
+        <div id="panel-worldclock" class="sub-controls">
+            <select id="timezoneSelect">
+                <option value="Asia/Ho_Chi_Minh">Việt Nam (GMT+7)</option>
+                <option value="Asia/Tokyo">Tokyo (GMT+9)</option>
+                <option value="Europe/London">London (GMT+0)</option>
+                <option value="Europe/Paris">Paris (GMT+1/2)</option>
+                <option value="America/New_York">New York (GMT-4/5)</option>
+                <option value="America/Los_Angeles">Los Angeles (GMT-7/8)</option>
+                <option value="Australia/Sydney">Sydney (GMT+10/11)</option>
+                <option value="UTC">Giờ phối hợp quốc tế (UTC)</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_SEGMENTS = 60;
+        let currentMode = 'stopwatch';
+        let audioCtx = null;
+        let alarmBuzzerInterval = null;
+
+        // Khởi tạo các vòng số 01
+        function createRings() {
+            ['ring-h', 'ring-m', 'ring-s'].forEach(id => {
+                const ring = document.getElementById(id);
+                ring.innerHTML = '';
+                const radius = id === 'ring-s' ? 190 : id === 'ring-m' ? 140 : 90;
+                for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+                    const span = document.createElement('span');
+                    span.classList.add('digit-01');
+                    span.innerText = '01';
+                    const angle = (i / TOTAL_SEGMENTS) * 360;
+                    span.style.transform = `rotate(${angle}deg) translateY(-${radius}px) rotate(90deg)`;
+                    ring.appendChild(span);
+                }
+            });
+        }
+
+        // Cập nhật trạng thái kim
+        function updateRingActive(ringId, value) {
+            const digits = document.getElementById(ringId).querySelectorAll('.digit-01');
+            digits.forEach(d => d.classList.remove('active'));
+            if (digits[value]) digits[value].classList.add('active');
+        }
+
+        // --- HỆ THỐNG ÂM THANH ---
+        function startBuzzing() {
+            if (alarmBuzzerInterval) return;
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            alarmBuzzerInterval = setInterval(() => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            }, 300);
+        }
+
+        function stopBuzzing() {
+            if (alarmBuzzerInterval) {
+                clearInterval(alarmBuzzerInterval);
+                alarmBuzzerInterval = null;
+            }
+        }
+
+        // --- QUẢN LÝ CHẾ ĐỘ ---
+        const modeNames = {
+            'stopwatch': 'Đếm Giờ',
+            'alarm': 'Báo Thức',
+            'timer': 'Hẹn Giờ',
+            'worldclock': 'Giờ Quốc Tế'
+        };
+
+        function changeMode(mode) {
+            currentMode = mode;
+            stopBuzzing();
+            
+            const container = document.getElementById('clockContainer');
+            container.className = `clock-container mode-${mode}`;
+            document.getElementById('modeLabel').innerText = modeNames[mode];
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.sub-controls').forEach(p => p.classList.remove('active'));
+            document.getElementById(`panel-${mode}`).classList.add('active');
+
+            if (mode === 'stopwatch') updateStopwatchDisplay();
+            else if (mode === 'timer') updateTimerDisplay();
+        }
+
+        // --- 1. ĐẾM GIỜ ---
+        let swStartTime = 0, swElapsedTime = 0, swRunning = false;
+        
+        function updateStopwatchDisplay() {
+            let ms = swElapsedTime % 1000;
+            let totalSecs = Math.floor(swElapsedTime / 1000);
+            let s = totalSecs % 60;
+            let m = Math.floor(totalSecs / 60) % 60;
+            let h = Math.floor(totalSecs / 3600);
+
+            const pad = n => n.toString().padStart(2, '0');
+            document.getElementById('timeDisplay').innerText = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(Math.floor(ms/10))}`;
+            
+            if (currentMode === 'stopwatch') {
+                updateRingActive('ring-s', s);
+                updateRingActive('ring-m', m);
+                updateRingActive('ring-h', (h % 12) * 5);
+            }
+        }
+
+        document.getElementById('swStart').addEventListener('click', () => {
+            if (!swRunning) { swRunning = true; swStartTime = Date.now() - swElapsedTime; }
+        });
+        document.getElementById('swStop').addEventListener('click', () => { swRunning = false; });
+        document.getElementById('swReset').addEventListener('click', () => {
+            swRunning = false; swElapsedTime = 0; updateStopwatchDisplay();
+        });
+
+
+        // --- 2. BÁO THỨC ---
+        let targetAlarmTime = null;
+        document.getElementById('alarmSet').addEventListener('click', () => {
+            const inputTime = document.getElementById('alarmTime').value;
+            if (!inputTime) return;
+            targetAlarmTime = inputTime;
+            document.getElementById('alarmStatus').innerText = `Báo thức lúc: ${targetAlarmTime}`;
+        });
+        document.getElementById('alarmClear').addEventListener('click', () => {
+            targetAlarmTime = null; stopBuzzing();
+            document.getElementById('alarmStatus').innerText = `Chưa đặt báo thức`;
+        });
+
+
+        // --- 3. HẸN GIỜ ---
+        let tmDuration = 0, tmRunning = false, tmEndTime = 0, tmTimeLeft = 0;
+        function updateTimerDisplay() {
+            let totalSecs = Math.ceil(tmTimeLeft / 1000);
+            if(totalSecs < 0) totalSecs = 0;
+            let s = totalSecs % 60;
+            let m = Math.floor(totalSecs / 60) % 60;
+            let h = Math.floor(totalSecs / 3600);
+
+            const pad = n => n.toString().padStart(2, '0');
+            document.getElementById('timeDisplay').innerText = `${pad(h)}:${pad(m)}:${pad(s)}:00`;
+
+            if (currentMode === 'timer') {
+                updateRingActive('ring-s', s);
+                updateRingActive('ring-m', m);
+                updateRingActive('ring-h', (h % 12) * 5);
+            }
+        }
+
+        document.getElementById('tmStart').addEventListener('click', () => {
+            if (tmRunning) return;
+            if (tmTimeLeft <= 0) {
+                const h = parseInt(document.getElementById('tmH').value) || 0;
+                const m = parseInt(document.getElementById('tmM').value) || 0;
+                const s = parseInt(document.getElementById('tmS').value) || 0;
+                tmDuration = (h * 3600 + m * 60 + s) * 1000;
+                tmTimeLeft = tmDuration;
+            }
+            if (tmTimeLeft > 0) { tmRunning = true; tmEndTime = Date.now() + tmTimeLeft; }
+        });
+        document.getElementById('tmStop').addEventListener('click', () => { tmRunning = false; stopBuzzing(); });
+        document.getElementById('tmReset').addEventListener('click', () => {
+            tmRunning = false; tmTimeLeft = 0; stopBuzzing(); updateTimerDisplay();
+        });
+
+
+        // --- ENGINE HỆ THỐNG TRUNG TÂM ---
+        function systemTick() {
+            const now = Date.now();
+            const dateObj = new Date();
+
+            // Đếm giờ
+            if (swRunning) {
+                swElapsedTime = now - swStartTime;
+                if (currentMode === 'stopwatch') updateStopwatchDisplay();
+            }
+
+            // Hẹn giờ
+            if (tmRunning) {
+                tmTimeLeft = tmEndTime - now;
+                if (tmTimeLeft <= 0) { tmTimeLeft = 0; tmRunning = false; startBuzzing(); }
+                if (currentMode === 'timer') updateTimerDisplay();
+            }
+
+            const pad = n => n.toString().padStart(2, '0');
+
+            // Báo thức / Thời gian thực
+            if (currentMode === 'alarm' || targetAlarmTime) {
+                const curH = dateObj.getHours();
+                const curM = dateObj.getMinutes();
+                const curS = dateObj.getSeconds();
+                const curMS = dateObj.getMilliseconds();
+
+                if (targetAlarmTime) {
+                    const timeString = `${pad(curH)}:${pad(curM)}:${pad(curS)}`;
+                    if (timeString === targetAlarmTime || timeString.substring(0,5) === targetAlarmTime) {
+                        startBuzzing();
+                    }
+                }
+
+                if (currentMode === 'alarm') {
+                    document.getElementById('timeDisplay').innerText = `${pad(curH)}:${pad(curM)}:${pad(curS)}:${pad(Math.floor(curMS/10))}`;
+                    updateRingActive('ring-s', curS);
+                    updateRingActive('ring-m', curM);
+                    updateRingActive('ring-h', (curH % 12) * 5);
+                }
+            }
+
+            // 4. Giờ Quốc Tế (World Clock)
+            if (currentMode === 'worldclock') {
+                const selectedZone = document.getElementById('timezoneSelect').value;
+                // Tính toán thời gian dựa trên múi giờ đã chọn
+                const tzDate = new Date(dateObj.toLocaleString('en-US', { timeZone: selectedZone }));
+                
+                const tzH = tzDate.getHours();
+                const tzM = tzDate.getMinutes();
+                const tzS = tzDate.getSeconds();
+
+                // Ở chế độ này có thể không cần hiện ms để màn hình gọn hơn, nhưng tôi vẫn để cho đồng bộ UI
+                document.getElementById('timeDisplay').innerText = `${pad(tzH)}:${pad(tzM)}:${pad(tzS)}:00`;
+                
+                updateRingActive('ring-s', tzS);
+                updateRingActive('ring-m', tzM);
+                updateRingActive('ring-h', (tzH % 12) * 5);
+
+                // Cập nhật nhãn bên dưới tên múi giờ
+                const selector = document.getElementById('timezoneSelect');
+                const cityName = selector.options[selector.selectedIndex].text.split('(')[0].trim();
+                document.getElementById('modeLabel').innerText = `Giờ tại ${cityName}`;
+            }
+
+            requestAnimationFrame(systemTick);
+        }
+
+        // Khởi động
+        createRings();
+        requestAnimationFrame(systemTick);
+        
+        // Mặc định ô báo thức
+        const d = new Date();
+        document.getElementById('alarmTime').value = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:00`;
+    </script>
+</body>
+</html>
